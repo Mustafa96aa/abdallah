@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL } from '../data/landingData';
+
 interface FooterProps {
   onNavigate: (sectionId: string) => void;
 }
@@ -61,11 +63,11 @@ export function Footer({ onNavigate }: FooterProps) {
         <div className="pt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-rose-200/75">
           <p>© ٢٠٢٦ عبد الله لصناعة المحتوى والإعلان. جميع الحقوق محفوظة.</p>
           <a
-            href="mailto:aboodee2004sh@gmail.com"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="hover:text-white transition-colors"
             dir="ltr"
           >
-            aboodee2004sh@gmail.com
+            {CONTACT_EMAIL}
           </a>
         </div>
       </div>

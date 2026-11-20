@@ -28,7 +28,7 @@ export function CapabilitiesBento() {
           </div>
 
           <div
-            role="tablist"
+            role="group"
             aria-label="تصفية الخدمات حسب التخصص"
             className="inline-flex flex-wrap items-center gap-1 p-1.5 bg-[#EFE2E5] rounded-xl self-start lg:self-auto"
           >
@@ -38,8 +38,7 @@ export function CapabilitiesBento() {
                 <button
                   key={tab.id}
                   type="button"
-                  role="tab"
-                  aria-selected={isActive}
+                  aria-pressed={isActive}
                   onClick={() => setActiveFilter(tab.id)}
                   className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#881337] ${
                     isActive

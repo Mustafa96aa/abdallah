@@ -76,6 +76,7 @@ export function Hero({ onPrimaryCta, onSecondaryCta }: HeroProps) {
                   alt="عبد الله في استوديو التصوير وصناعة المحتوى"
                   fallbackTitle="عبد الله — التصوير وصناعة المحتوى"
                   className="w-full h-full lg:h-full object-cover"
+                  priority
                 />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#360512]/65 via-transparent to-transparent" />
               </div>
@@ -106,9 +107,13 @@ export function Hero({ onPrimaryCta, onSecondaryCta }: HeroProps) {
 
       {/* Subtle Editorial Ribbon Divider */}
       <div className="bg-[#320410] text-rose-100 border-t border-white/10 overflow-hidden py-3.5">
-        <div className="flex whitespace-nowrap animate-marquee-rtl">
-          {[0, 1].map((loopIndex) => (
-            <div key={loopIndex} className="flex items-center gap-8 px-4 shrink-0">
+        <div className="flex w-max whitespace-nowrap animate-marquee-rtl">
+          {[0, 1, 2, 3].map((loopIndex) => (
+            <div
+              key={loopIndex}
+              aria-hidden={loopIndex > 0 ? true : undefined}
+              className="flex items-center gap-8 px-4 shrink-0"
+            >
               {RIBBON_ITEMS.map((item) => (
                 <div
                   key={`${loopIndex}-${item}`}

@@ -1,9 +1,19 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
-import { BUDGET_RANGES, PROJECT_SCOPES } from '../data/landingData';
+import {
+  BUDGET_RANGES,
+  CONTACT_EMAIL,
+  PROJECT_SCOPES,
+} from '../data/landingData';
+import { LeadsUnavailableError, submitLead } from '../lib/leadsRepository';
+
+export interface LeadPrefill {
+  text: string;
+  nonce: number;
+}
 
 interface LeadCaptureProps {
-  prefillNote?: string;
+  prefill?: LeadPrefill;
 }
 
 interface FormErrors {
@@ -11,66 +21,133 @@ interface FormErrors {
   contact?: string;
 }
 
-export function LeadCapture({ prefillNote }: LeadCaptureProps) {
+/** يحوّل الأرقام العربية (٠١٢...) والهندية (۰۱۲...) إلى أرقام إنجليزية قبل التحقق. */
+function normalizeDigits(value: string): string {
+  return value
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+}
+
+export function LeadCapture({ prefill }: LeadCaptureProps) {
   const [scope, setScope] = useState<string>(PROJECT_SCOPES[0].id);
   const [budget, setBudget] = useState<string>(BUDGET_RANGES[0]);
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [contact, setContact] = useState('');
   const [notes, setNotes] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const contactRef = useRef<HTMLInputElement | null>(null);
+  const notesEditedByUser = useRef(false);
+
+  // لا نكتب فوق ملاحظات كتبها الزائر بنفسه
   useEffect(() => {
-    if (prefillNote) {
-      setNotes(prefillNote);
+    if (prefill && !notesEditedByUser.current) {
+      setNotes(prefill.text);
     }
-  }, [prefillNote]);
+  }, [prefill]);
 
   const selectedScopeObj =
     PROJECT_SCOPES.find((item) => item.id === scope) || PROJECT_SCOPES[0];
 
-  const validate = (): boolean => {
+  const validate = (): FormErrors => {
     const nextErrors: FormErrors = {};
 
-    if (!name.trim() || name.trim().length < 2) {
+    if (name.trim().length < 2) {
       nextErrors.name = 'يرجى إدخال الاسم الكامل.';
     }
 
-    const trimmedContact = contact.trim();
+    const trimmedContact = normalizeDigits(contact.trim());
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phonePattern = /^[+]?[\d\s()-]{8,}$/;
+    const phonePattern = /^\+?[\d\s()-]{8,}$/;
+    const digitsCount = trimmedContact.replace(/\D/g, '').length;
 
     if (!trimmedContact) {
       nextErrors.contact = 'يرجى إدخال رقم الواتساب أو البريد الإلكتروني.';
     } else if (
       !emailPattern.test(trimmedContact) &&
-      !phonePattern.test(trimmedContact)
+      !(phonePattern.test(trimmedContact) && digitsCount >= 8)
     ) {
       nextErrors.contact =
         'يرجى إدخال بريد إلكتروني صحيح أو رقم هاتف مكون من ٨ أرقام على الأقل.';
     }
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    return nextErrors;
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate()) {
+    if (status === 'sending') return;
+    setSubmitError(null);
+
+    // حقل مخفي لا يراه البشر؛ إن امتلأ فهو بوت. نتظاهر بالنجاح دون حفظ شيء.
+    if (honeypot.trim()) {
+      setStatus('sent');
       return;
     }
-    setSubmitted(true);
+
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (nextErrors.name) {
+      nameRef.current?.focus();
+      return;
+    }
+    if (nextErrors.contact) {
+      contactRef.current?.focus();
+      return;
+    }
+
+    setStatus('sending');
+    try {
+      await submitLead({
+        name,
+        contact: normalizeDigits(contact.trim()),
+        company,
+        scope: selectedScopeObj.label,
+        budget,
+        notes,
+      });
+      setStatus('sent');
+    } catch (err) {
+      setStatus('idle');
+      if (err instanceof LeadsUnavailableError) {
+        setSubmitError(
+          'خدمة استلام الطلبات غير مفعّلة حالياً. يمكنك مراسلتي مباشرة عبر البريد الإلكتروني.'
+        );
+      } else {
+        setSubmitError(
+          err instanceof Error ? err.message : 'حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى.'
+        );
+      }
+    }
   };
 
   const handleReset = () => {
-    setSubmitted(false);
+    setStatus('idle');
+    setScope(PROJECT_SCOPES[0].id);
+    setBudget(BUDGET_RANGES[0]);
     setName('');
     setCompany('');
     setContact('');
     setNotes('');
+    setHoneypot('');
     setErrors({});
+    setSubmitError(null);
+    notesEditedByUser.current = false;
   };
+
+  const mailtoHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+    `طلب تعاون: ${selectedScopeObj.label}`
+  )}&body=${encodeURIComponent(
+    `الاسم: ${name}\nالتواصل: ${contact}\nالعلامة: ${company}\nالخدمة: ${selectedScopeObj.label}\nالميزانية: ${budget}\n\n${notes}`
+  )}`;
+
+  const optionBase =
+    'block px-4 py-3 text-sm font-medium rounded-xl border transition-colors duration-150 cursor-pointer border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-[#881337]/40 peer-checked:border-[#881337] peer-checked:bg-[#680E27] peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#881337]';
 
   return (
     <section id="contact" className="py-20 lg:py-28 bg-[#5E0B22] text-white">
@@ -99,21 +176,21 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
               <div>
                 <div className="text-rose-200">التواصل المباشر</div>
                 <a
-                  href="mailto:aboodee2004sh@gmail.com"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   className="font-semibold text-white hover:text-rose-200 underline underline-offset-4"
                   dir="ltr"
                 >
-                  aboodee2004sh@gmail.com
+                  {CONTACT_EMAIL}
                 </a>
               </div>
             </div>
           </div>
 
           <div className="lg:col-span-7 p-6 sm:p-10 rounded-2xl border border-white/15 bg-white text-neutral-950">
-            {submitted ? (
-              <div className="py-8 space-y-6">
+            {status === 'sent' ? (
+              <div className="py-8 space-y-6" role="status" aria-live="polite">
                 <div className="inline-flex items-center gap-2.5 text-emerald-800 font-semibold text-sm">
-                  <CheckCircle2 className="w-5 h-5" />
+                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                   <span>تم استلام طلبك بنجاح</span>
                 </div>
 
@@ -143,55 +220,65 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="space-y-7">
-                <div>
-                  <label className="block text-sm font-semibold text-neutral-950 mb-3">
-                    الخدمة المطلوبة
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {PROJECT_SCOPES.map((item) => {
-                      const active = scope === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setScope(item.id)}
-                          className={`px-4 py-3 text-sm font-medium rounded-xl border text-right transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#881337] ${
-                            active
-                              ? 'border-[#881337] bg-[#680E27] text-white'
-                              : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-[#881337]/40'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    })}
+                {submitError && (
+                  <div
+                    role="alert"
+                    className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm font-medium text-red-900 space-y-2"
+                  >
+                    <p className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                      <span>{submitError}</span>
+                    </p>
+                    <a
+                      href={mailtoHref}
+                      className="inline-block text-xs font-semibold underline underline-offset-4"
+                    >
+                      إرسال الطلب عبر تطبيق البريد
+                    </a>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <label className="block text-sm font-semibold text-neutral-950 mb-3">
-                    الميزانية المتوقعة
-                  </label>
+                <fieldset>
+                  <legend className="block text-sm font-semibold text-neutral-950 mb-3">
+                    الخدمة المطلوبة
+                  </legend>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {BUDGET_RANGES.map((range) => {
-                      const active = budget === range;
-                      return (
-                        <button
-                          key={range}
-                          type="button"
-                          onClick={() => setBudget(range)}
-                          className={`px-4 py-2.5 text-sm font-medium rounded-xl border text-center transition-colors duration-150 tabular-nums cursor-pointer focus-visible:outline-2 focus-visible:outline-[#881337] ${
-                            active
-                              ? 'border-[#881337] bg-[#680E27] text-white'
-                              : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-[#881337]/40'
-                          }`}
-                        >
-                          {range}
-                        </button>
-                      );
-                    })}
+                    {PROJECT_SCOPES.map((item) => (
+                      <label key={item.id} className="relative block">
+                        <input
+                          type="radio"
+                          name="lead-scope"
+                          value={item.id}
+                          checked={scope === item.id}
+                          onChange={() => setScope(item.id)}
+                          className="peer sr-only"
+                        />
+                        <span className={`${optionBase} text-right`}>{item.label}</span>
+                      </label>
+                    ))}
                   </div>
-                </div>
+                </fieldset>
+
+                <fieldset>
+                  <legend className="block text-sm font-semibold text-neutral-950 mb-3">
+                    الميزانية المتوقعة
+                  </legend>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {BUDGET_RANGES.map((range) => (
+                      <label key={range} className="relative block">
+                        <input
+                          type="radio"
+                          name="lead-budget"
+                          value={range}
+                          checked={budget === range}
+                          onChange={() => setBudget(range)}
+                          className="peer sr-only"
+                        />
+                        <span className={`${optionBase} text-center tabular-nums`}>{range}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
@@ -202,8 +289,11 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                       الاسم الكامل *
                     </label>
                     <input
+                      ref={nameRef}
                       id="lead-name"
                       type="text"
+                      autoComplete="name"
+                      maxLength={100}
                       value={name}
                       onChange={(e) => {
                         setName(e.target.value);
@@ -211,6 +301,7 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                       }}
                       placeholder="مثال: خالد الدوسري"
                       aria-invalid={Boolean(errors.name)}
+                      aria-describedby={errors.name ? 'lead-name-error' : undefined}
                       className={`w-full px-4 py-3 text-sm rounded-xl border bg-white text-neutral-950 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#881337]/15 ${
                         errors.name
                           ? 'border-red-700'
@@ -218,8 +309,12 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                       }`}
                     />
                     {errors.name && (
-                      <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-800">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <p
+                        id="lead-name-error"
+                        role="alert"
+                        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-800"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         <span>{errors.name}</span>
                       </p>
                     )}
@@ -235,6 +330,7 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                     <input
                       id="lead-company"
                       type="text"
+                      maxLength={100}
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
                       placeholder="@brandname (اختياري)"
@@ -251,8 +347,11 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                     رقم الواتساب أو البريد الإلكتروني *
                   </label>
                   <input
+                    ref={contactRef}
                     id="lead-contact"
                     type="text"
+                    autoComplete="email"
+                    maxLength={120}
                     value={contact}
                     onChange={(e) => {
                       setContact(e.target.value);
@@ -262,6 +361,7 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                     placeholder="name@company.com أو 05xxxxxxxx"
                     dir="ltr"
                     aria-invalid={Boolean(errors.contact)}
+                    aria-describedby={errors.contact ? 'lead-contact-error' : undefined}
                     className={`w-full px-4 py-3 text-sm rounded-xl border bg-white text-neutral-950 text-right placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#881337]/15 ${
                       errors.contact
                         ? 'border-red-700'
@@ -269,8 +369,12 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                     }`}
                   />
                   {errors.contact && (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-800">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <p
+                      id="lead-contact-error"
+                      role="alert"
+                      className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-800"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>{errors.contact}</span>
                     </p>
                   )}
@@ -286,20 +390,40 @@ export function LeadCapture({ prefillNote }: LeadCaptureProps) {
                   <textarea
                     id="lead-notes"
                     rows={3}
+                    maxLength={2000}
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    onChange={(e) => {
+                      notesEditedByUser.current = true;
+                      setNotes(e.target.value);
+                    }}
                     placeholder="حدثني باختصار عن منتجاتك أو خدماتك وما الذي ترغب في تحقيقه من التصوير أو الإعلانات..."
                     className="w-full px-4 py-3 text-sm rounded-xl border border-neutral-300 bg-white text-neutral-950 placeholder:text-neutral-400 focus:outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
                   />
                 </div>
 
+                {/* فخ للبوتات: حقل مخفي عن البشر وقارئات الشاشة */}
+                <div aria-hidden="true" className="sr-only">
+                  <label>
+                    الموقع الإلكتروني
+                    <input
+                      type="text"
+                      name="website"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={honeypot}
+                      onChange={(e) => setHoneypot(e.target.value)}
+                    />
+                  </label>
+                </div>
+
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-semibold text-white bg-[#680E27] hover:bg-[#4A0819] rounded-xl transition-colors duration-150 cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#881337]"
+                    disabled={status === 'sending'}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-semibold text-white bg-[#680E27] hover:bg-[#4A0819] disabled:opacity-60 disabled:cursor-not-allowed rounded-xl transition-colors duration-150 cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#881337]"
                   >
-                    <span>إرسال طلب التعاون</span>
-                    <ArrowLeft className="w-4 h-4" />
+                    <span>{status === 'sending' ? 'جاري الإرسال...' : 'إرسال طلب التعاون'}</span>
+                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               </form>

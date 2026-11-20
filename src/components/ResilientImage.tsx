@@ -6,6 +6,8 @@ interface ResilientImageProps {
   alt: string;
   className?: string;
   fallbackTitle?: string;
+  /** للصور الأولى في الصفحة (مثل صورة الغلاف): تُحمَّل فوراً بدل التحميل الكسول. */
+  priority?: boolean;
 }
 
 export function ResilientImage({
@@ -13,10 +15,12 @@ export function ResilientImage({
   alt,
   className = '',
   fallbackTitle,
+  priority = false,
 }: ResilientImageProps) {
-  const [hasError, setHasError] = useState(false);
+  // نخزّن الرابط الذي فشل بدل true/false، حتى تعود الصورة للعمل عند تغيير الرابط.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  if (hasError) {
+  if (!src || failedSrc === src) {
     return (
       <div
         role="img"
@@ -36,8 +40,10 @@ export function ResilientImage({
       src={src}
       alt={alt}
       referrerPolicy="no-referrer"
-      loading="lazy"
-      onError={() => setHasError(true)}
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : undefined}
+      decoding="async"
+      onError={() => setFailedSrc(src)}
       className={className}
     />
   );

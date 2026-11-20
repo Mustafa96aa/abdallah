@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { Check } from 'lucide-react';
 import { METHODOLOGY_STEPS } from '../data/landingData';
 
 export function Methodology() {
   const [activeStepId, setActiveStepId] = useState(METHODOLOGY_STEPS[0].id);
-
-  useEffect(() => {
-    if (!METHODOLOGY_STEPS.some((s) => s.id === activeStepId)) {
-      setActiveStepId(METHODOLOGY_STEPS[0].id);
-    }
-  }, [activeStepId]);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const activeStep =
     METHODOLOGY_STEPS.find((step) => step.id === activeStepId) ||
     METHODOLOGY_STEPS[0];
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const count = METHODOLOGY_STEPS.length;
+    const index = METHODOLOGY_STEPS.findIndex((step) => step.id === activeStep.id);
+    let next = index;
+
+    if (e.key === 'ArrowDown') next = (index + 1) % count;
+    else if (e.key === 'ArrowUp') next = (index - 1 + count) % count;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = count - 1;
+    else return;
+
+    e.preventDefault();
+    const nextId = METHODOLOGY_STEPS[next].id;
+    setActiveStepId(nextId);
+    tabRefs.current[nextId]?.focus();
+  };
 
   return (
     <section
@@ -29,15 +41,27 @@ export function Methodology() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-5 space-y-3" role="tablist" aria-label="مراحل العمل">
+          <div
+            className="lg:col-span-5 space-y-3"
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="مراحل العمل"
+            onKeyDown={handleKeyDown}
+          >
             {METHODOLOGY_STEPS.map((step) => {
               const isSelected = step.id === activeStep.id;
               return (
                 <button
                   key={step.id}
+                  ref={(el) => {
+                    tabRefs.current[step.id] = el;
+                  }}
+                  id={`methodology-tab-${step.id}`}
                   type="button"
                   role="tab"
                   aria-selected={isSelected}
+                  aria-controls="methodology-panel"
+                  tabIndex={isSelected ? 0 : -1}
                   onClick={() => setActiveStepId(step.id)}
                   className={`w-full text-right p-5 rounded-xl border transition-colors duration-150 flex items-center justify-between gap-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#881337] ${
                     isSelected
@@ -70,7 +94,10 @@ export function Methodology() {
           </div>
 
           <div
+            id="methodology-panel"
             role="tabpanel"
+            aria-labelledby={`methodology-tab-${activeStep.id}`}
+            tabIndex={0}
             className="lg:col-span-7 p-8 lg:p-10 rounded-2xl border border-[#78122E] bg-[#5E0B22] text-white"
           >
             <div className="flex items-center gap-2 text-xs text-rose-200 mb-4">
@@ -99,7 +126,7 @@ export function Methodology() {
                     key={output}
                     className="flex items-start gap-3 text-sm sm:text-base text-white"
                   >
-                    <Check className="w-4 h-4 text-rose-300 mt-1 shrink-0" />
+                    <Check className="w-4 h-4 text-rose-300 mt-1 shrink-0" aria-hidden="true" />
                     <span>{output}</span>
                   </li>
                 ))}

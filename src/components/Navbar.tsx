@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
 interface NavbarProps {
@@ -14,6 +14,15 @@ const NAV_LINKS = [
 
 export function Navbar({ onNavigate }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
 
   const handleLinkClick = (id: string) => {
     setMobileOpen(false);
@@ -69,6 +78,7 @@ export function Navbar({ onNavigate }: NavbarProps) {
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-expanded={mobileOpen}
+            aria-controls="mobile-menu"
             aria-label={mobileOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
             className="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-lg border border-white/25 text-white hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-white"
           >
@@ -78,7 +88,7 @@ export function Navbar({ onNavigate }: NavbarProps) {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden bg-[#3B0614] border-b border-white/15 px-6 py-4 space-y-2">
+        <div id="mobile-menu" className="md:hidden bg-[#3B0614] border-b border-white/15 px-6 py-4 space-y-2">
           <nav aria-label="قائمة الجوال" className="flex flex-col gap-1">
             {NAV_LINKS.map((link) => (
               <a
