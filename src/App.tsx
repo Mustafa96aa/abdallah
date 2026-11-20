@@ -9,11 +9,11 @@ import { Hero } from './components/Hero';
 import { CapabilitiesBento } from './components/CapabilitiesBento';
 import { ProjectsShowcase } from './components/ProjectsShowcase';
 import { Methodology } from './components/Methodology';
-import { LeadCapture } from './components/LeadCapture';
+import { LeadCapture, type LeadPrefill } from './components/LeadCapture';
 import { Footer } from './components/Footer';
 
 export default function App() {
-  const [prefillNote, setPrefillNote] = useState<string>('');
+  const [prefill, setPrefill] = useState<LeadPrefill | undefined>(undefined);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -24,7 +24,11 @@ export default function App() {
 
   const handleConsultationRequest = (context?: string) => {
     if (context) {
-      setPrefillNote(context);
+      // nonce يضمن إعادة تطبيق النص حتى لو ضغط الزائر على نفس المشروع مرتين
+      setPrefill({ text: context, nonce: Date.now() });
+      // تأخير بسيط حتى تُغلَق النافذة المنبثقة ويُعاد تفعيل التمرير أولاً
+      window.setTimeout(() => scrollToSection('contact'), 60);
+      return;
     }
     scrollToSection('contact');
   };
@@ -40,7 +44,7 @@ export default function App() {
         <CapabilitiesBento />
         <ProjectsShowcase onRequestConsultation={handleConsultationRequest} />
         <Methodology />
-        <LeadCapture prefillNote={prefillNote} />
+        <LeadCapture prefill={prefill} />
       </main>
       <Footer onNavigate={scrollToSection} />
     </div>

@@ -15,6 +15,13 @@
   html {
     font-family: var(--font-sans);
     scroll-behavior: smooth;
+    /* يمنع اختفاء عناوين الأقسام تحت شريط التنقل الثابت */
+    scroll-padding-top: 4.5rem;
+  }
+
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid #fb7185;
+    outline-offset: 2px;
   }
 
   h1, h2, h3, .font-display {
@@ -27,7 +34,8 @@
     transform: translateX(0);
   }
   100% {
-    transform: translateX(50%);
+    /* الشريط مكرر 4 مرات، فالإزاحة بمقدار نسخة واحدة = 25% */
+    transform: translateX(25%);
   }
 }
 
