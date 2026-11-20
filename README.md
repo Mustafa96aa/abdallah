@@ -1,20 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# موقع عبد الله — معرض أعمال وخدمات
 
-# Run and deploy your AI Studio app
+موقع عربي (RTL) لعرض خدمات التصوير التجاري وصناعة المحتوى وإدارة الحملات الإعلانية.
+مبني بـ React 19 + Vite + Tailwind 4 + TypeScript، ويستخدم Supabase لحفظ المشاريع والصور وطلبات العملاء.
 
-This contains everything you need to run your app locally.
+## التشغيل على جهازك
 
-View your app in AI Studio: https://ai.studio/apps/ebae1818-aa95-438e-a8a7-2d975561bcd4
+```bash
+bun install        # أو: npm install
+cp .env.example .env.local   # ثم عبّئ قيم Supabase
+bun run dev        # أو: npm run dev
+```
 
-## Run Locally
+## الإعداد (مرة واحدة)
 
-**Prerequisites:**  Node.js
+1. **Supabase ← SQL Editor**: الصق محتوى `supabase/schema.sql` وشغّله.
+   - قبلها غيّر الإيميل داخل دالة `is_admin()` إلى إيميلك الذي ستسجّل به الدخول.
+2. **Supabase ← Authentication ← Sign In / Providers**: عطّل خيار السماح بتسجيل مستخدمين جدد
+   (Allow new users to sign up)، ثم أنشئ حسابك يدوياً من Authentication ← Users ← Add user.
+3. **Vercel ← Settings ← Environment Variables**: أضف `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY`
+   (من Supabase ← Project Settings ← API) ثم أعد النشر (Redeploy).
 
+## إدارة المعرض
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- افتح الموقع بالرابط `https://موقعك/#admin` لتظهر أزرار الإدارة (تظهر لك أنت فقط).
+- سجّل الدخول، ثم أضف المشاريع والصور أو احذفها.
+- الصور تُصغَّر وتُضغط تلقائياً قبل الرفع.
+
+## طلبات العملاء
+
+- أي طلب من الفورم يُحفظ في جدول `leads` في Supabase (Table Editor ← leads).
+- لتصلك رسالة عند كل طلب جديد: Supabase ← Database ← Webhooks، أو أضف خدمة مثل Resend لاحقاً.
+
+## قبل النشر
+
+- استبدل الأرقام والمشاريع والشهادة التجريبية في `src/data/landingData.ts` ببياناتك الحقيقية
+  (ابحث عن كلمة `TODO`).
+- أضف صورة مشاركة (`og:image`) ورابط الموقع (`canonical`) في `index.html`.

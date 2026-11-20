@@ -2,5 +2,5 @@
   "name": "عبد الله — صناعة المحتوى والتصوير وإدارة الحملات",
   "description": "معرض أعمال وخدمات عبد الله في صناعة محتوى السوشيال ميديا، التصوير التجاري، إدارة صفحات فيسبوك وإنستغرام، والحملات الإعلانية.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }
