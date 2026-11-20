@@ -47,8 +47,11 @@ export interface HeroMetric {
   context: string;
 }
 
+export const CONTACT_EMAIL = 'aboodee2004sh@gmail.com';
+
 export const HERO_IMAGE = '/src/assets/images/abdullah_hero_studio_1795047250647.jpg';
 
+// TODO(مهم): هذه الأرقام تجريبية من القالب. استبدلها بأرقام حقيقية من حساباتك الإعلانية قبل النشر.
 export const HERO_METRICS: HeroMetric[] = [
   {
     value: '+4.2M',
@@ -146,6 +149,7 @@ export const CAPABILITIES: CapabilityItem[] = [
   },
 ];
 
+// TODO(مهم): المشاريع التالية تجريبية وتظهر فقط عندما لا يكون Supabase مفعّلاً. استبدلها بأعمالك الحقيقية.
 export const INITIAL_PROJECTS: PortfolioProject[] = [
   {
     id: 'rokn-cafe',
@@ -191,7 +195,7 @@ export const INITIAL_PROJECTS: PortfolioProject[] = [
     ],
   },
   {
-    id: 'noor-clinic',
+    id: 'mada-store',
     title: 'إدارة شاملة لصفحتي فيسبوك وإنستغرام مع حملات الرسائل',
     client: 'متجر وتجهيزات مدى',
     category: 'management',
@@ -211,6 +215,7 @@ export const INITIAL_PROJECTS: PortfolioProject[] = [
   },
 ];
 
+// TODO(مهم): الشهادة التالية تجريبية. استبدلها بشهادة حقيقية (بموافقة صاحبها) أو احذف القسم.
 export const TESTIMONIAL = {
   quote:
     'قبل التعاون مع عبد الله، كانت صفحتنا تنشر صوراً عشوائية لا تجلب زبائن فعليين. بعد جلسة التصوير الأولى وإعادة تنظيم حساب إنستغرام وإطلاق الحملات الممولة، ارتفعت الطلبات اليومية عبر الرسائل بأكثر من الضعف خلال شهرين.',
